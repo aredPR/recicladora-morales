@@ -17,3 +17,17 @@ class Material(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - ${self.precio_kg}/kg"
+
+
+class RegistroMaterial(models.Model):
+    """Registro de movimientos de material."""
+
+    material = models.ForeignKey(
+        Material, on_delete=models.CASCADE, related_name="registros"
+    )
+    cantidad_kg = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha = models.DateTimeField(auto_now_add=True)
+    descripcion = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.material.nombre} - {self.cantidad_kg}kg ({self.fecha.date()})"
