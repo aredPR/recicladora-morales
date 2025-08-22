@@ -9,12 +9,14 @@
   <h2 class="font-semibold mb-4">Registrar compra</h2>
   <form id="form-compra" class="grid grid-cols-6 gap-4">
     <div class="col-span-2">
-      <label class="block text-sm">Proveedor</label>
-      <select id="proveedor" class="border p-2 rounded w-full"></select>
+      <label class="block text-sm">Proveedor (opcional)</label>
+      <select id="proveedor" class="border p-2 rounded w-full">
+        <option value="">— Sin proveedor —</option>
+      </select>
     </div>
     <div class="col-span-2">
       <label class="block text-sm">Material</label>
-      <select id="material" class="border p-2 rounded w-full"></select>
+      <select id="material" class="border p-2 rounded w-full" required></select>
     </div>
     <div>
       <label class="block text-sm">Cantidad (kg)</label>
@@ -24,6 +26,12 @@
       <label class="block text-sm">Precio unitario ($/kg)</label>
       <input type="number" step="0.01" id="precio_unitario" class="border p-2 rounded w-full" required>
     </div>
+
+    <!-- Preview de total (opcional) -->
+    <div class="col-span-6">
+      <span id="preview-total" class="text-sm text-gray-600"></span>
+    </div>
+
     <div class="col-span-6 flex gap-2">
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
       <span id="msg-compra" class="text-sm"></span>
@@ -100,18 +108,25 @@
 
 <script>
 (async () => {
-  // Combos
-  const [proveedores, materiales] = await Promise.all([
+  // ===== Cargar combos (proveedor/material) =====
+  const [proveedoresResp, materialesResp] = await Promise.all([
     fetch("/api/proveedores/").then(r => r.json()),
     fetch("/api/materiales/").then(r => r.json()),
   ]);
-  document.getElementById("proveedor").innerHTML = proveedores.map(p => `<option value="${p.id}">${p.nombre}</option>`).join("");
-  document.getElementById("material").innerHTML  = materiales.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+  const proveedores = Array.isArray(proveedoresResp) ? proveedoresResp : (proveedoresResp.results || []);
+  const materiales  = Array.isArray(materialesResp)  ? materialesResp  : (materialesResp.results  || []);
 
-  // Estado de paginación
+  const $prov = document.getElementById("proveedor");
+  const $mat  = document.getElementById("material");
+
+  // Mantener el primer option "Sin proveedor"
+  $prov.innerHTML += proveedores.map(p => `<option value="${p.id}">${p.nombre}</option>`).join("");
+  $mat.innerHTML  = materiales.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+
+  // ===== Estado de paginación =====
   let paginaActualURL = "/api/compras/?page=1";
 
-  // Helpers
+  // ===== Helpers =====
   function toISO(dtLocal) { return dtLocal ? new Date(dtLocal).toISOString() : ""; }
 
   function buildQuery() {
@@ -134,14 +149,14 @@
   async function cargarCompras(url = paginaActualURL) {
     const resp = await fetch(url);
     const data = await resp.json();
-    const tbody = document.getElementById("tabla-compras");
+    const results = data.results || data;
 
-    let results = data.results || data; // por si desactivas paginación
+    const tbody = document.getElementById("tabla-compras");
     tbody.innerHTML = results.map(c => `
       <tr class="border-b" data-id="${c.id}" data-cant="${c.cantidad_kg}" data-precio="${c.precio_unitario}">
         <td class="py-2 px-2">${c.id}</td>
-        <td class="py-2 px-2">${c.proveedor}</td>
-        <td class="py-2 px-2">${c.material}</td>
+        <td class="py-2 px-2">${c.proveedor_nombre ?? (c.proveedor ?? '—')}</td>
+        <td class="py-2 px-2">${c.material_nombre ?? (c.material ?? '')}</td>
         <td class="py-2 px-2">${c.cantidad_kg}</td>
         <td class="py-2 px-2">$${Number(c.precio_unitario).toFixed(2)}</td>
         <td class="py-2 px-2 font-semibold">$${Number(c.total).toFixed(2)}</td>
@@ -153,28 +168,23 @@
       </tr>
     `).join("");
 
-    // Paginación
+    // Paginador
     paginaActualURL = url;
-    const prevBtn = document.getElementById("prev");
-    const nextBtn = document.getElementById("next");
-    prevBtn.disabled = !data.previous;
-    nextBtn.disabled = !data.next;
-    prevBtn.onclick = data.previous ? (() => cargarCompras(data.previous)) : null;
-    nextBtn.onclick = data.next ? (() => cargarCompras(data.next)) : null;
+    document.getElementById("prev").disabled = !data.previous;
+    document.getElementById("next").disabled = !data.next;
+    document.getElementById("prev").onclick = data.previous ? (() => cargarCompras(data.previous)) : null;
+    document.getElementById("next").onclick = data.next ? (() => cargarCompras(data.next)) : null;
     document.getElementById("meta").textContent = `Total: ${data.count ?? results.length}`;
   }
 
-  // Inicial
   await cargarCompras();
 
-  // Recargar
   document.getElementById("btn-recargar").addEventListener("click", () => cargarCompras("/api/compras/?page=1"));
 
-  // Filtros
+  // ===== Filtros =====
   document.getElementById("btn-filtrar").addEventListener("click", (e) => {
     e.preventDefault();
-    const url = buildQuery();
-    cargarCompras(url);
+    cargarCompras(buildQuery());
   });
   document.getElementById("btn-limpiar").addEventListener("click", () => {
     ["f_ini","f_fin","f_prov","f_mat"].forEach(id => document.getElementById(id).value = "");
@@ -182,26 +192,76 @@
     cargarCompras("/api/compras/?page=1");
   });
 
-  // Alta
+  // ===== Autollenar precio según material + preview total =====
+  const $precioUnitario = document.getElementById("precio_unitario");
+  const $cantidadKg     = document.getElementById("cantidad_kg");
+  const $previewTotal   = document.getElementById("preview-total");
+
+  async function cargarPrecioMaterial(materialId) {
+    if (!materialId) return;
+    try {
+      const res  = await fetch(`/api/materiales/${materialId}/`);
+      if (!res.ok) throw new Error("No se pudo obtener el material");
+      const mat  = await res.json();
+      $precioUnitario.value = (mat.precio_kg ?? 0);
+      actualizarPreviewTotal();
+    } catch (e) {
+      console.error("Error obteniendo material:", e);
+    }
+  }
+
+  function actualizarPreviewTotal() {
+    if (!$previewTotal) return;
+    const kg = parseFloat($cantidadKg.value || "0");
+    const pu = parseFloat($precioUnitario.value || "0");
+    if (kg > 0 && pu >= 0) {
+      const total = kg * pu;
+      $previewTotal.textContent = `Total estimado: $${total.toFixed(2)}`;
+    } else {
+      $previewTotal.textContent = "";
+    }
+  }
+
+  document.getElementById("material").addEventListener("change", (e) => {
+    const id = e.target.value ? Number(e.target.value) : null;
+    if (id) cargarPrecioMaterial(id);
+  });
+  $cantidadKg.addEventListener("input", actualizarPreviewTotal);
+  $precioUnitario.addEventListener("input", actualizarPreviewTotal);
+
+  // Autollenar al cargar si ya hay material seleccionado
+  if ($mat.value) cargarPrecioMaterial(Number($mat.value));
+
+  // ===== Alta =====
   const $form = document.getElementById("form-compra");
   const $msg  = document.getElementById("msg-compra");
+
   $form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const provVal = document.getElementById("proveedor").value;
+    const proveedor = provVal === "" ? null : Number(provVal);
+
     const payload = {
-      proveedor: Number(document.getElementById("proveedor").value),
+      proveedor: proveedor,                                   // puede ser null
       material: Number(document.getElementById("material").value),
       cantidad_kg: document.getElementById("cantidad_kg").value,
       precio_unitario: document.getElementById("precio_unitario").value
     };
+
     const res = await fetch("/api/compras/", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN },
+      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN || getCookie('csrftoken') },
       body: JSON.stringify(payload)
     });
+
     if (res.ok) {
       $msg.textContent = "✅ Compra registrada.";
       $msg.className = "text-green-600 text-sm";
       $form.reset();
+      // restablecer “Sin proveedor”
+      document.getElementById("proveedor").value = "";
+      $previewTotal.textContent = "";
       await cargarCompras("/api/compras/?page=1");
     } else {
       const err = await res.json().catch(() => ({}));
@@ -210,7 +270,7 @@
     }
   });
 
-  // Editar / Eliminar
+  // ===== Editar / Eliminar =====
   document.getElementById("tabla-compras").addEventListener("click", async (ev) => {
     const row = ev.target.closest("tr");
     if (!row) return;

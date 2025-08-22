@@ -1,16 +1,15 @@
 from rest_framework import serializers
 from .models import Material, Proveedor, RegistroMaterial
 
-class ProveedorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Proveedor
-        fields = "__all__"
-
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
-        fields = "__all__"
+        fields = ['id', 'nombre', 'descripcion', 'precio_kg']
 
+class ProveedorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Proveedor
+        fields = ['id', 'nombre', 'telefono', 'email', 'direccion']
 
 class RegistroMaterialSerializer(serializers.ModelSerializer):
     material = serializers.PrimaryKeyRelatedField(

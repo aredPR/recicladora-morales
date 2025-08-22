@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Proveedores - Recicladora{% endblock %}
+
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Proveedores</h1>
 
@@ -30,22 +31,51 @@
   </form>
 </div>
 
-<table class="w-full text-left">
-  <thead>
-    <tr class="border-b">
-      <th class="py-2">ID</th><th class="py-2">Nombre</th><th class="py-2">Teléfono</th><th class="py-2">Email</th><th class="py-2">Dirección</th><th class="py-2">Acciones</th>
-    </tr>
-  </thead>
-  <tbody id="tabla-proveedores"></tbody>
-</table>
+<!-- TABLA PROVEEDORES -->
+<div class="bg-white shadow rounded p-4">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-semibold">Proveedores registrados</h2>
+    <button id="btn-recargar" class="px-3 py-1 rounded border">Recargar</button>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left">
+      <thead>
+        <tr class="border-b">
+          <th class="py-2">ID</th>
+          <th class="py-2">Nombre</th>
+          <th class="py-2">Teléfono</th>
+          <th class="py-2">Email</th>
+          <th class="py-2">Dirección</th>
+          <th class="py-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-proveedores"></tbody>
+    </table>
+  </div>
+</div>
 
 <script>
 (async () => {
-  async function cargarProveedores(){
-    const data = await fetch("/api/proveedores/").then(r=>r.json());
+  async function fetchJSON(url, options={}) {
+    const res = await fetch(url, options);
+    let data = null;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error("HTTP " + res.status + (data ? " - " + JSON.stringify(data) : ""));
+    return data ?? {};
+  }
+
+  async function cargarProveedores(url="/api/proveedores/") {
+    const data = await fetchJSON(url);
+    console.log("GET proveedores →", data); // 👉 ver en consola
+    const rows = Array.isArray(data) ? data : (data.results ?? []);
     const tbody = document.getElementById("tabla-proveedores");
-    tbody.innerHTML = data.map(p => `
-      <tr class="border-b" data-id="${p.id}" data-nombre="${p.nombre}" data-tel="${p.telefono ?? ''}" data-email="${p.email ?? ''}" data-dir="${p.direccion ?? ''}">
+    tbody.innerHTML = rows.map(p => `
+      <tr class="border-b"
+          data-id="${p.id}"
+          data-nombre="${p.nombre}"
+          data-tel="${p.telefono ?? ''}"
+          data-email="${p.email ?? ''}"
+          data-dir="${p.direccion ?? ''}">
         <td class="py-2">${p.id}</td>
         <td class="py-2">${p.nombre}</td>
         <td class="py-2">${p.telefono ?? ""}</td>
@@ -58,12 +88,14 @@
       </tr>
     `).join("");
   }
-  await cargarProveedores();
 
-  // CREATE sigue igual que ya lo tenías
+  await cargarProveedores();
+  document.getElementById("btn-recargar").addEventListener("click", () => cargarProveedores());
+
+  // CREATE
   const $form = document.getElementById("form-proveedor");
   const $msg  = document.getElementById("msg-proveedor");
-  $form.addEventListener("submit", async (e)=>{
+  $form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = {
       nombre: document.getElementById("p_nombre").value.trim(),
@@ -71,13 +103,22 @@
       email: document.getElementById("p_email").value.trim() || null,
       direccion: document.getElementById("p_dir").value.trim() || null,
     };
-    const res = await fetch("/api/proveedores/", {
-      method: "POST",
-      headers: {"Content-Type":"application/json","X-CSRFToken": CSRF_TOKEN},
-      body: JSON.stringify(payload)
-    });
-    if(res.ok){ $msg.textContent="✅ Proveedor guardado."; $msg.className="text-green-600 text-sm"; $form.reset(); cargarProveedores(); }
-    else { const err = await res.json().catch(()=>({})); $msg.textContent="❌ Error: "+(JSON.stringify(err)||res.statusText); $msg.className="text-red-600 text-sm"; }
+    console.log("POST /api/proveedores/ payload →", payload);
+    try {
+      await fetchJSON("/api/proveedores/", {
+        method: "POST",
+        headers: { "Content-Type":"application/json", "X-CSRFToken": CSRF_TOKEN || getCookie('csrftoken') },
+        body: JSON.stringify(payload)
+      });
+      $msg.textContent = "✅ Proveedor guardado.";
+      $msg.className = "text-green-600 text-sm";
+      $form.reset();
+      await cargarProveedores();
+    } catch (e) {
+      console.error(e);
+      $msg.textContent = "❌ Error: " + e.message;
+      $msg.className = "text-red-600 text-sm";
+    }
   });
 
   // EDIT + DELETE
@@ -96,19 +137,31 @@
     if (ev.target.classList.contains("btn-edit")) {
       const html = `
         <div class="grid grid-cols-1 gap-3">
-          <label class="text-sm">Nombre <input id="edit_nombre" class="border p-2 rounded w-full" value="${row.dataset.nombre}"></label>
-          <label class="text-sm">Teléfono <input id="edit_tel" class="border p-2 rounded w-full" value="${row.dataset.tel}"></label>
-          <label class="text-sm">Email <input id="edit_email" type="email" class="border p-2 rounded w-full" value="${row.dataset.email}"></label>
-          <label class="text-sm">Dirección <input id="edit_dir" class="border p-2 rounded w-full" value="${row.dataset.dir}"></label>
+          <label class="text-sm">Nombre
+            <input id="edit_nombre" class="border p-2 rounded w-full" value="${row.dataset.nombre}">
+          </label>
+          <label class="text-sm">Teléfono
+            <input id="edit_tel" class="border p-2 rounded w-full" value="${row.dataset.tel}">
+          </label>
+          <label class="text-sm">Email
+            <input id="edit_email" type="email" class="border p-2 rounded w-full" value="${row.dataset.email}">
+          </label>
+          <label class="text-sm">Dirección
+            <input id="edit_dir" class="border p-2 rounded w-full" value="${row.dataset.dir}">
+          </label>
         </div>
       `;
       openModal(html, async () => {
         try {
-          await apiPatch(`/api/proveedores/${id}/`, {
-            nombre: document.getElementById("edit_nombre").value.trim(),
-            telefono: document.getElementById("edit_tel").value.trim() || null,
-            email: document.getElementById("edit_email").value.trim() || null,
-            direccion: document.getElementById("edit_dir").value.trim() || null,
+          await fetchJSON(`/api/proveedores/${id}/`, {
+            method: "PATCH",
+            headers: { "Content-Type":"application/json", "X-CSRFToken": CSRF_TOKEN || getCookie('csrftoken') },
+            body: JSON.stringify({
+              nombre: document.getElementById("edit_nombre").value.trim(),
+              telefono: document.getElementById("edit_tel").value.trim() || null,
+              email: document.getElementById("edit_email").value.trim() || null,
+              direccion: document.getElementById("edit_dir").value.trim() || null,
+            })
           });
           await cargarProveedores();
           return true;

@@ -36,7 +36,7 @@ router.register(r'ventas', VentaViewSet)
 router.register(r'clientes', ClienteViewSet)
 router.register(r'proveedores', ProveedorViewSet)
 router.register(r'materiales', MaterialViewSet)
-router.register(r'registros-materiales', RegistroMaterialViewSet)
+# router.register(r'registros-materiales', RegistroMaterialViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

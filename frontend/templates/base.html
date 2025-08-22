@@ -5,26 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}Recicladora Morales{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-  // Obtener csrftoken de cookie (Django)
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let cookie of cookies) {
-        cookie = cookie.trim();
-        if (cookie.startsWith(name + "=")) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
-  const CSRF_TOKEN = getCookie('csrftoken');
-</script>
 </head>
 <body class="bg-gray-100 font-sans">
+  <!-- genera la cookie csrftoken en el navegador -->
+  <form style="display:none">{% csrf_token %}</form>
+
   <div class="flex h-screen">
     <!-- Sidebar -->
     <aside class="w-64 bg-white shadow-md">
@@ -40,17 +25,16 @@
         <a href="{% url 'proveedores' %}" class="block py-2 px-6 hover:bg-gray-200">👥 Proveedores</a>
 
         {% if request.user.is_authenticated and request.user.rol == 'admin' %}
-            <a href="{% url 'reportes' %}" class="block py-2 px-6 hover:bg-gray-200">📑 Reportes</a>
-            <a href="{% url 'configuracion' %}" class="block py-2 px-6 hover:bg-gray-200">⚙️ Configuración</a>
+          <a href="{% url 'reportes' %}" class="block py-2 px-6 hover:bg-gray-200">📑 Reportes</a>
+          <a href="{% url 'configuracion' %}" class="block py-2 px-6 hover:bg-gray-200">⚙️ Configuración</a>
         {% endif %}
 
         {% if request.user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="block py-2 px-6 hover:bg-gray-200">🚪 Salir</a>
+          <a href="{% url 'logout' %}" class="block py-2 px-6 hover:bg-gray-200">🚪 Salir</a>
         {% else %}
-            <a href="{% url 'login' %}" class="block py-2 px-6 hover:bg-gray-200">🔐 Entrar</a>
+          <a href="{% url 'login' %}" class="block py-2 px-6 hover:bg-gray-200">🔐 Entrar</a>
         {% endif %}
       </nav>
-
     </aside>
 
     <!-- Main -->
@@ -58,7 +42,7 @@
       <header class="bg-white shadow-md flex items-center justify-between px-6 py-4">
         <input type="text" placeholder="Buscar materiales, proveedores..." class="w-1/2 p-2 border rounded-md">
         <div class="flex items-center gap-3">
-          <span class="font-semibold text-gray-600">👤 Admin</span>
+          <span class="font-semibold text-gray-600">👤 {{ request.user.username|default:"Invitado" }}</span>
         </div>
       </header>
 
@@ -67,55 +51,74 @@
       </main>
     </div>
   </div>
+
+  <!-- Helpers (al final para asegurar cookie CSRF disponible) -->
   <script>
-  // Modal simple reutilizable
-  function openModal(html, onConfirm) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = `
-      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white rounded shadow-lg w-full max-w-lg">
-          <div class="p-4 border-b flex justify-between items-center">
-            <h3 class="font-semibold">Editar</h3>
-            <button id="modal-close" class="text-gray-500 hover:text-black">✖</button>
-          </div>
-          <div class="p-4" id="modal-body">${html}</div>
-          <div class="p-4 border-t flex justify-end gap-2">
-            <button id="modal-cancel" class="px-4 py-2 rounded border">Cancelar</button>
-            <button id="modal-confirm" class="px-4 py-2 rounded bg-blue-600 text-white">Guardar</button>
+    // Obtener csrftoken de cookie (Django)
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+        for (let cookie of cookies) {
+          cookie = cookie.trim();
+          if (cookie.startsWith(name + "=")) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    const CSRF_TOKEN = getCookie('csrftoken');
+
+    // Modal simple reutilizable
+    function openModal(html, onConfirm) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div class="bg-white rounded shadow-lg w-full max-w-lg">
+            <div class="p-4 border-b flex justify-between items-center">
+              <h3 class="font-semibold">Editar</h3>
+              <button id="modal-close" class="text-gray-500 hover:text-black">✖</button>
+            </div>
+            <div class="p-4" id="modal-body">${html}</div>
+            <div class="p-4 border-t flex justify-end gap-2">
+              <button id="modal-cancel" class="px-4 py-2 rounded border">Cancelar</button>
+              <button id="modal-confirm" class="px-4 py-2 rounded bg-blue-600 text-white">Guardar</button>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-    document.body.appendChild(wrap);
+      `;
+      document.body.appendChild(wrap);
 
-    const cleanup = () => wrap.remove();
-    wrap.querySelector('#modal-close').onclick = cleanup;
-    wrap.querySelector('#modal-cancel').onclick = cleanup;
-    wrap.querySelector('#modal-confirm').onclick = async () => {
-      const ok = await onConfirm();
-      if (ok !== false) cleanup();
-    };
-  }
-
-  async function apiDelete(url) {
-    const res = await fetch(url, { method: "DELETE", headers: { "X-CSRFToken": CSRF_TOKEN }});
-    if (!res.ok) throw new Error("Error al eliminar: " + res.status);
-    return true;
-  }
-
-  async function apiPatch(url, payload) {
-    const res = await fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      let msg = res.statusText;
-      try { msg = JSON.stringify(await res.json()); } catch {}
-      throw new Error("Error al editar: " + msg);
+      const cleanup = () => wrap.remove();
+      wrap.querySelector('#modal-close').onclick = cleanup;
+      wrap.querySelector('#modal-cancel').onclick = cleanup;
+      wrap.querySelector('#modal-confirm').onclick = async () => {
+        const ok = await onConfirm();
+        if (ok !== false) cleanup();
+      };
     }
-    return await res.json();
-  }
-</script>
+
+    async function apiDelete(url) {
+      const res = await fetch(url, { method: "DELETE", headers: { "X-CSRFToken": CSRF_TOKEN || getCookie('csrftoken') }});
+      if (!res.ok) throw new Error("Error al eliminar: " + res.status);
+      return true;
+    }
+
+    async function apiPatch(url, payload) {
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN || getCookie('csrftoken') },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        let msg = res.statusText;
+        try { msg = JSON.stringify(await res.json()); } catch {}
+        throw new Error("Error al editar: " + msg);
+      }
+      return await res.json();
+    }
+  </script>
 </body>
 </html>

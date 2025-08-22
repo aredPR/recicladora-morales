@@ -8,16 +8,15 @@ from .serializers import (
 )
 from usuarios.permissions import IsAdminOrReadCreateOnly  
 
-class ProveedorViewSet(viewsets.ModelViewSet):
-    queryset = Proveedor.objects.all()
-    serializer_class = ProveedorSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrReadCreateOnly]  
-
 class MaterialViewSet(viewsets.ModelViewSet):
-    queryset = Material.objects.all()
+    queryset = Material.objects.all().order_by('id')
     serializer_class = MaterialSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrReadCreateOnly]
+    permission_classes = [IsAuthenticated]
 
+class ProveedorViewSet(viewsets.ModelViewSet):
+    queryset = Proveedor.objects.all().order_by('id')
+    serializer_class = ProveedorSerializer
+    permission_classes = [IsAuthenticated]
 
 class RegistroMaterialViewSet(viewsets.ModelViewSet):
     queryset = RegistroMaterial.objects.all().order_by("-fecha")
