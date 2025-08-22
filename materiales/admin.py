@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Proveedor, Material
+from .models import Material, Proveedor, RegistroMaterial
 
 @admin.register(Proveedor)
 class ProveedorAdmin(admin.ModelAdmin):
@@ -10,3 +10,9 @@ class ProveedorAdmin(admin.ModelAdmin):
 class MaterialAdmin(admin.ModelAdmin):
     list_display = ("id", "nombre", "precio_kg")
     search_fields = ("nombre",)
+
+
+@admin.register(RegistroMaterial)
+class RegistroMaterialAdmin(admin.ModelAdmin):
+    list_display = ("id", "material", "cantidad_kg", "fecha")
+    list_filter = ("material", "fecha")

@@ -1,7 +1,11 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from .models import Material, Proveedor
-from .serializers import MaterialSerializer, ProveedorSerializer
+from .models import Material, Proveedor, RegistroMaterial
+from .serializers import (
+    MaterialSerializer,
+    ProveedorSerializer,
+    RegistroMaterialSerializer,
+)
 from usuarios.permissions import IsAdminOrReadCreateOnly  
 
 class ProveedorViewSet(viewsets.ModelViewSet):
@@ -12,4 +16,10 @@ class ProveedorViewSet(viewsets.ModelViewSet):
 class MaterialViewSet(viewsets.ModelViewSet):
     queryset = Material.objects.all()
     serializer_class = MaterialSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrReadCreateOnly] 
+    permission_classes = [IsAuthenticated, IsAdminOrReadCreateOnly]
+
+
+class RegistroMaterialViewSet(viewsets.ModelViewSet):
+    queryset = RegistroMaterial.objects.all().order_by("-fecha")
+    serializer_class = RegistroMaterialSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrReadCreateOnly]

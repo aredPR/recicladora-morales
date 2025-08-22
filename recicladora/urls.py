@@ -23,7 +23,11 @@ from rest_framework import routers
 from usuarios.views import UsuarioViewSet
 from compras.views import CompraViewSet
 from ventas.views import VentaViewSet, ClienteViewSet
-from materiales.views import ProveedorViewSet, MaterialViewSet
+from materiales.views import (
+    ProveedorViewSet,
+    MaterialViewSet,
+    RegistroMaterialViewSet,
+)
 
 router = routers.DefaultRouter()
 router.register(r'usuarios', UsuarioViewSet)
@@ -32,6 +36,7 @@ router.register(r'ventas', VentaViewSet)
 router.register(r'clientes', ClienteViewSet)
 router.register(r'proveedores', ProveedorViewSet)
 router.register(r'materiales', MaterialViewSet)
+router.register(r'registros-materiales', RegistroMaterialViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
