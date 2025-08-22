@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Proveedores - Recicladora{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Proveedores</h1>
+
+<!-- FORM PROVEEDOR -->
+<div class="bg-white shadow rounded p-6 mb-6">
+  <h2 class="font-semibold mb-4">Registrar proveedor</h2>
+  <form id="form-proveedor" class="grid grid-cols-6 gap-4">
+    <div class="col-span-3">
+      <label class="block text-sm">Nombre</label>
+      <input id="p_nombre" type="text" class="border p-2 rounded w-full" required>
+    </div>
+    <div class="col-span-2">
+      <label class="block text-sm">Teléfono</label>
+      <input id="p_tel" type="text" class="border p-2 rounded w-full">
+    </div>
+    <div class="col-span-3">
+      <label class="block text-sm">Email</label>
+      <input id="p_email" type="email" class="border p-2 rounded w-full">
+    </div>
+    <div class="col-span-3">
+      <label class="block text-sm">Dirección</label>
+      <input id="p_dir" type="text" class="border p-2 rounded w-full">
+    </div>
+    <div class="col-span-6 flex gap-2">
+      <button class="bg-purple-600 text-white px-4 py-2 rounded" type="submit">Guardar</button>
+      <span id="msg-proveedor" class="text-sm"></span>
+    </div>
+  </form>
+</div>
+
+<table class="w-full text-left">
+  <thead>
+    <tr class="border-b">
+      <th class="py-2">ID</th><th class="py-2">Nombre</th><th class="py-2">Teléfono</th><th class="py-2">Email</th><th class="py-2">Dirección</th><th class="py-2">Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="tabla-proveedores"></tbody>
+</table>
+
+<script>
+(async () => {
+  async function cargarProveedores(){
+    const data = await fetch("/api/proveedores/").then(r=>r.json());
+    const tbody = document.getElementById("tabla-proveedores");
+    tbody.innerHTML = data.map(p => `
+      <tr class="border-b" data-id="${p.id}" data-nombre="${p.nombre}" data-tel="${p.telefono ?? ''}" data-email="${p.email ?? ''}" data-dir="${p.direccion ?? ''}">
+        <td class="py-2">${p.id}</td>
+        <td class="py-2">${p.nombre}</td>
+        <td class="py-2">${p.telefono ?? ""}</td>
+        <td class="py-2">${p.email ?? ""}</td>
+        <td class="py-2">${p.direccion ?? ""}</td>
+        <td class="py-2 flex gap-2">
+          <button class="px-3 py-1 rounded bg-blue-600 text-white btn-edit">Editar</button>
+          <button class="px-3 py-1 rounded bg-red-600 text-white btn-del">Eliminar</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+  await cargarProveedores();
+
+  // CREATE sigue igual que ya lo tenías
+  const $form = document.getElementById("form-proveedor");
+  const $msg  = document.getElementById("msg-proveedor");
+  $form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const payload = {
+      nombre: document.getElementById("p_nombre").value.trim(),
+      telefono: document.getElementById("p_tel").value.trim() || null,
+      email: document.getElementById("p_email").value.trim() || null,
+      direccion: document.getElementById("p_dir").value.trim() || null,
+    };
+    const res = await fetch("/api/proveedores/", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","X-CSRFToken": CSRF_TOKEN},
+      body: JSON.stringify(payload)
+    });
+    if(res.ok){ $msg.textContent="✅ Proveedor guardado."; $msg.className="text-green-600 text-sm"; $form.reset(); cargarProveedores(); }
+    else { const err = await res.json().catch(()=>({})); $msg.textContent="❌ Error: "+(JSON.stringify(err)||res.statusText); $msg.className="text-red-600 text-sm"; }
+  });
+
+  // EDIT + DELETE
+  document.getElementById("tabla-proveedores").addEventListener("click", async (ev) => {
+    const row = ev.target.closest("tr");
+    if (!row) return;
+    const id = row.dataset.id;
+
+    if (ev.target.classList.contains("btn-del")) {
+      if (!confirm("¿Eliminar proveedor #" + id + "?")) return;
+      try { await apiDelete(`/api/proveedores/${id}/`); await cargarProveedores(); }
+      catch (e) { alert(e.message); }
+      return;
+    }
+
+    if (ev.target.classList.contains("btn-edit")) {
+      const html = `
+        <div class="grid grid-cols-1 gap-3">
+          <label class="text-sm">Nombre <input id="edit_nombre" class="border p-2 rounded w-full" value="${row.dataset.nombre}"></label>
+          <label class="text-sm">Teléfono <input id="edit_tel" class="border p-2 rounded w-full" value="${row.dataset.tel}"></label>
+          <label class="text-sm">Email <input id="edit_email" type="email" class="border p-2 rounded w-full" value="${row.dataset.email}"></label>
+          <label class="text-sm">Dirección <input id="edit_dir" class="border p-2 rounded w-full" value="${row.dataset.dir}"></label>
+        </div>
+      `;
+      openModal(html, async () => {
+        try {
+          await apiPatch(`/api/proveedores/${id}/`, {
+            nombre: document.getElementById("edit_nombre").value.trim(),
+            telefono: document.getElementById("edit_tel").value.trim() || null,
+            email: document.getElementById("edit_email").value.trim() || null,
+            direccion: document.getElementById("edit_dir").value.trim() || null,
+          });
+          await cargarProveedores();
+          return true;
+        } catch(e) { alert(e.message); return false; }
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}

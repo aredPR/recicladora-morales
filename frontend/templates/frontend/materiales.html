@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Materiales - Recicladora{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Materiales</h1>
+
+<!-- FORM MATERIAL -->
+<div class="bg-white shadow rounded p-6 mb-6">
+  <h2 class="font-semibold mb-4">Registrar material</h2>
+  <form id="form-material" class="grid grid-cols-6 gap-4">
+    <div class="col-span-3">
+      <label class="block text-sm">Nombre</label>
+      <input id="m_nombre" type="text" class="border p-2 rounded w-full" required>
+    </div>
+    <div class="col-span-2">
+      <label class="block text-sm">Precio ($/kg)</label>
+      <input id="m_precio" type="number" step="0.01" class="border p-2 rounded w-full" required>
+    </div>
+    <div class="col-span-6">
+      <label class="block text-sm">Descripción (opcional)</label>
+      <textarea id="m_desc" class="border p-2 rounded w-full" rows="2"></textarea>
+    </div>
+    <div class="col-span-6 flex gap-2">
+      <button class="bg-indigo-600 text-white px-4 py-2 rounded" type="submit">Guardar</button>
+      <span id="msg-material" class="text-sm"></span>
+    </div>
+  </form>
+</div>
+
+<!-- TABLA MATERIAL -->
+<div class="bg-white shadow rounded p-4">
+  <h2 class="font-semibold mb-4">Materiales registrados</h2>
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b">
+        <th class="py-2">ID</th><th class="py-2">Nombre</th><th class="py-2">Precio/kg</th><th class="py-2">Descripción</th><th class="py-2">Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-materiales"></tbody>
+  </table>
+</div>
+
+<script>
+(async () => {
+  async function cargarMateriales(){
+    const data = await fetch("/api/materiales/").then(r=>r.json());
+    const tbody = document.getElementById("tabla-materiales");
+    tbody.innerHTML = data.map(m => `
+      <tr class="border-b" data-id="${m.id}" data-nombre="${m.nombre}" data-precio="${m.precio_kg}" data-desc="${m.descripcion ?? ''}">
+        <td class="py-2">${m.id}</td>
+        <td class="py-2">${m.nombre}</td>
+        <td class="py-2">$${Number(m.precio_kg).toFixed(2)}</td>
+        <td class="py-2">${m.descripcion ?? ""}</td>
+        <td class="py-2 flex gap-2">
+          <button class="px-3 py-1 rounded bg-blue-600 text-white btn-edit">Editar</button>
+          <button class="px-3 py-1 rounded bg-red-600 text-white btn-del">Eliminar</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+  await cargarMateriales();
+
+  // CREATE (como lo tenías)
+  const $form = document.getElementById("form-material");
+  const $msg  = document.getElementById("msg-material");
+  $form.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    const payload = {
+      nombre: document.getElementById("m_nombre").value.trim(),
+      precio_kg: document.getElementById("m_precio").value,
+      descripcion: document.getElementById("m_desc").value.trim() || null
+    };
+    const res = await fetch("/api/materiales/", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","X-CSRFToken": CSRF_TOKEN},
+      body: JSON.stringify(payload)
+    });
+    if(res.ok){ $msg.textContent="✅ Material guardado."; $msg.className="text-green-600 text-sm"; $form.reset(); cargarMateriales(); }
+    else { const err = await res.json().catch(()=>({})); $msg.textContent="❌ Error: "+(JSON.stringify(err)||res.statusText); $msg.className="text-red-600 text-sm"; }
+  });
+
+  // EDIT + DELETE (delegación)
+  document.getElementById("tabla-materiales").addEventListener("click", async (ev) => {
+    const row = ev.target.closest("tr");
+    if (!row) return;
+    const id = row.dataset.id;
+
+    if (ev.target.classList.contains("btn-del")) {
+      if (!confirm("¿Eliminar material #" + id + "?")) return;
+      try { await apiDelete(`/api/materiales/${id}/`); await cargarMateriales(); }
+      catch (e) { alert(e.message); }
+      return;
+    }
+
+    if (ev.target.classList.contains("btn-edit")) {
+      const html = `
+        <div class="grid grid-cols-1 gap-3">
+          <label class="text-sm">Nombre <input id="edit_nombre" class="border p-2 rounded w-full" value="${row.dataset.nombre}"></label>
+          <label class="text-sm">Precio/kg <input id="edit_precio" type="number" step="0.01" class="border p-2 rounded w-full" value="${row.dataset.precio}"></label>
+          <label class="text-sm">Descripción <textarea id="edit_desc" class="border p-2 rounded w-full" rows="2">${row.dataset.desc}</textarea></label>
+        </div>
+      `;
+      openModal(html, async () => {
+        try {
+          await apiPatch(`/api/materiales/${id}/`, {
+            nombre: document.getElementById("edit_nombre").value.trim(),
+            precio_kg: document.getElementById("edit_precio").value,
+            descripcion: document.getElementById("edit_desc").value.trim() || null
+          });
+          await cargarMateriales();
+          return true;
+        } catch(e) { alert(e.message); return false; }
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}

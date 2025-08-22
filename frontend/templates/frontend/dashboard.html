@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Recicladora{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Panel de Control</h1>
+
+<!-- Acciones rápidas -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="p-4 bg-white shadow rounded text-center">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded">+ Nueva Compra</button>
+    </div>
+    <div class="p-4 bg-white shadow rounded text-center">
+        <button class="bg-green-500 text-white px-4 py-2 rounded">+ Nueva Venta</button>
+    </div>
+    <div class="p-4 bg-white shadow rounded text-center">
+        <button class="bg-indigo-500 text-white px-4 py-2 rounded">+ Agregar Material</button>
+    </div>
+    <div class="p-4 bg-white shadow rounded text-center">
+        <button class="bg-purple-500 text-white px-4 py-2 rounded">+ Nuevo Proveedor</button>
+    </div>
+</div>
+
+<!-- Indicadores -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-gray-500">Ventas del Día</h2>
+        <p class="text-2xl font-bold text-green-600">$12,450</p>
+        <span class="text-sm text-green-500">+15% vs ayer</span>
+    </div>
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-gray-500">Compras del Día</h2>
+        <p class="text-2xl font-bold text-blue-600">$8,230</p>
+        <span class="text-sm text-blue-500">+8% vs ayer</span>
+    </div>
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-gray-500">Materiales Activos</h2>
+        <p class="text-2xl font-bold text-gray-700">47</p>
+    </div>
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-gray-500">Proveedores Activos</h2>
+        <p class="text-2xl font-bold text-purple-600">23</p>
+    </div>
+</div>
+
+<!-- Sección inferior -->
+<div class="grid grid-cols-2 gap-6">
+    <!-- Transacciones recientes -->
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-lg font-bold mb-4">Transacciones Recientes</h2>
+        <ul class="space-y-3">
+            <li class="flex justify-between">
+                <span>Compra - Proveedor ABC</span>
+                <span class="text-green-600">$1250</span>
+            </li>
+            <li class="flex justify-between">
+                <span>Venta - Cliente XYZ</span>
+                <span class="text-blue-600">$2100</span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Materiales principales -->
+    <div class="bg-white p-6 shadow rounded">
+        <h2 class="text-lg font-bold mb-4">Materiales Principales</h2>
+        <ul class="space-y-3">
+            <li class="flex justify-between">
+                <span>♻️ Aluminio</span>
+                <span class="text-gray-600">Stock: 2.5 Ton</span>
+            </li>
+            <li class="flex justify-between">
+                <span>📦 Cartón</span>
+                <span class="text-gray-600">Stock: 1.8 Ton</span>
+            </li>
+            <li class="flex justify-between">
+                <span>⚡ Cobre</span>
+                <span class="text-gray-600">Stock: 450 Kg</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

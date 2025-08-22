@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Compras - Recicladora{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Compras</h1>
+
+<!-- FORMULARIO DE ALTA -->
+<div class="bg-white shadow rounded p-6 mb-6">
+  <h2 class="font-semibold mb-4">Registrar compra</h2>
+  <form id="form-compra" class="grid grid-cols-6 gap-4">
+    <div class="col-span-2">
+      <label class="block text-sm">Proveedor</label>
+      <select id="proveedor" class="border p-2 rounded w-full"></select>
+    </div>
+    <div class="col-span-2">
+      <label class="block text-sm">Material</label>
+      <select id="material" class="border p-2 rounded w-full"></select>
+    </div>
+    <div>
+      <label class="block text-sm">Cantidad (kg)</label>
+      <input type="number" step="0.01" id="cantidad_kg" class="border p-2 rounded w-full" required>
+    </div>
+    <div>
+      <label class="block text-sm">Precio unitario ($/kg)</label>
+      <input type="number" step="0.01" id="precio_unitario" class="border p-2 rounded w-full" required>
+    </div>
+    <div class="col-span-6 flex gap-2">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
+      <span id="msg-compra" class="text-sm"></span>
+    </div>
+  </form>
+</div>
+
+<!-- FILTROS -->
+<form id="filtros" class="bg-white shadow rounded p-4 mb-4 grid grid-cols-6 gap-4">
+  <div>
+    <label class="block text-sm">Fecha inicio</label>
+    <input type="datetime-local" id="f_ini" class="border p-2 rounded w-full">
+  </div>
+  <div>
+    <label class="block text-sm">Fecha fin</label>
+    <input type="datetime-local" id="f_fin" class="border p-2 rounded w-full">
+  </div>
+  <div>
+    <label class="block text-sm">Proveedor (ID)</label>
+    <input type="number" id="f_prov" class="border p-2 rounded w-full" placeholder="Opcional">
+  </div>
+  <div>
+    <label class="block text-sm">Material (ID)</label>
+    <input type="number" id="f_mat" class="border p-2 rounded w-full" placeholder="Opcional">
+  </div>
+  <div>
+    <label class="block text-sm">Ordenar por</label>
+    <select id="f_order" class="border p-2 rounded w-full">
+      <option value="-fecha">Fecha (desc)</option>
+      <option value="fecha">Fecha (asc)</option>
+      <option value="-total">Total (desc)</option>
+      <option value="total">Total (asc)</option>
+      <option value="-cantidad_kg">Kg (desc)</option>
+      <option value="cantidad_kg">Kg (asc)</option>
+    </select>
+  </div>
+  <div class="flex items-end gap-2">
+    <button id="btn-filtrar" class="px-4 py-2 bg-gray-800 text-white rounded" type="submit">Aplicar</button>
+    <button id="btn-limpiar" class="px-4 py-2 border rounded" type="button">Limpiar</button>
+  </div>
+</form>
+
+<!-- Paginación -->
+<div id="pager" class="flex items-center gap-2 mb-2">
+  <button id="prev" class="px-3 py-1 border rounded">« Anterior</button>
+  <button id="next" class="px-3 py-1 border rounded">Siguiente »</button>
+  <span id="meta" class="text-sm text-gray-600 ml-2"></span>
+</div>
+
+<!-- TABLA -->
+<div class="bg-white shadow rounded p-4">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-semibold">Compras registradas</h2>
+    <button id="btn-recargar" class="px-3 py-1 rounded border">Recargar</button>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left">
+      <thead>
+        <tr class="border-b">
+          <th class="py-2 px-2">ID</th>
+          <th class="py-2 px-2">Proveedor</th>
+          <th class="py-2 px-2">Material</th>
+          <th class="py-2 px-2">Kg</th>
+          <th class="py-2 px-2">PU</th>
+          <th class="py-2 px-2">Total</th>
+          <th class="py-2 px-2">Fecha</th>
+          <th class="py-2 px-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-compras"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(async () => {
+  // Combos
+  const [proveedores, materiales] = await Promise.all([
+    fetch("/api/proveedores/").then(r => r.json()),
+    fetch("/api/materiales/").then(r => r.json()),
+  ]);
+  document.getElementById("proveedor").innerHTML = proveedores.map(p => `<option value="${p.id}">${p.nombre}</option>`).join("");
+  document.getElementById("material").innerHTML  = materiales.map(m => `<option value="${m.id}">${m.nombre}</option>`).join("");
+
+  // Estado de paginación
+  let paginaActualURL = "/api/compras/?page=1";
+
+  // Helpers
+  function toISO(dtLocal) { return dtLocal ? new Date(dtLocal).toISOString() : ""; }
+
+  function buildQuery() {
+    const params = new URLSearchParams();
+    const fIni = document.getElementById("f_ini").value;
+    const fFin = document.getElementById("f_fin").value;
+    const prov = document.getElementById("f_prov").value;
+    const mat  = document.getElementById("f_mat").value;
+    const ord  = document.getElementById("f_order").value;
+
+    if (fIni) params.append("fecha_min", toISO(fIni));
+    if (fFin) params.append("fecha_max", toISO(fFin));
+    if (prov) params.append("proveedor", prov);
+    if (mat)  params.append("material", mat);
+    if (ord)  params.append("ordering", ord);
+    params.append("page", "1");
+    return "/api/compras/?" + params.toString();
+  }
+
+  async function cargarCompras(url = paginaActualURL) {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const tbody = document.getElementById("tabla-compras");
+
+    let results = data.results || data; // por si desactivas paginación
+    tbody.innerHTML = results.map(c => `
+      <tr class="border-b" data-id="${c.id}" data-cant="${c.cantidad_kg}" data-precio="${c.precio_unitario}">
+        <td class="py-2 px-2">${c.id}</td>
+        <td class="py-2 px-2">${c.proveedor}</td>
+        <td class="py-2 px-2">${c.material}</td>
+        <td class="py-2 px-2">${c.cantidad_kg}</td>
+        <td class="py-2 px-2">$${Number(c.precio_unitario).toFixed(2)}</td>
+        <td class="py-2 px-2 font-semibold">$${Number(c.total).toFixed(2)}</td>
+        <td class="py-2 px-2">${new Date(c.fecha).toLocaleString()}</td>
+        <td class="py-2 px-2 flex gap-2">
+          <button class="px-3 py-1 rounded bg-blue-600 text-white btn-edit">Editar</button>
+          <button class="px-3 py-1 rounded bg-red-600 text-white btn-del">Eliminar</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Paginación
+    paginaActualURL = url;
+    const prevBtn = document.getElementById("prev");
+    const nextBtn = document.getElementById("next");
+    prevBtn.disabled = !data.previous;
+    nextBtn.disabled = !data.next;
+    prevBtn.onclick = data.previous ? (() => cargarCompras(data.previous)) : null;
+    nextBtn.onclick = data.next ? (() => cargarCompras(data.next)) : null;
+    document.getElementById("meta").textContent = `Total: ${data.count ?? results.length}`;
+  }
+
+  // Inicial
+  await cargarCompras();
+
+  // Recargar
+  document.getElementById("btn-recargar").addEventListener("click", () => cargarCompras("/api/compras/?page=1"));
+
+  // Filtros
+  document.getElementById("btn-filtrar").addEventListener("click", (e) => {
+    e.preventDefault();
+    const url = buildQuery();
+    cargarCompras(url);
+  });
+  document.getElementById("btn-limpiar").addEventListener("click", () => {
+    ["f_ini","f_fin","f_prov","f_mat"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("f_order").value = "-fecha";
+    cargarCompras("/api/compras/?page=1");
+  });
+
+  // Alta
+  const $form = document.getElementById("form-compra");
+  const $msg  = document.getElementById("msg-compra");
+  $form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      proveedor: Number(document.getElementById("proveedor").value),
+      material: Number(document.getElementById("material").value),
+      cantidad_kg: document.getElementById("cantidad_kg").value,
+      precio_unitario: document.getElementById("precio_unitario").value
+    };
+    const res = await fetch("/api/compras/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": CSRF_TOKEN },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      $msg.textContent = "✅ Compra registrada.";
+      $msg.className = "text-green-600 text-sm";
+      $form.reset();
+      await cargarCompras("/api/compras/?page=1");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      $msg.textContent = "❌ Error al registrar compra: " + (JSON.stringify(err) || res.statusText);
+      $msg.className = "text-red-600 text-sm";
+    }
+  });
+
+  // Editar / Eliminar
+  document.getElementById("tabla-compras").addEventListener("click", async (ev) => {
+    const row = ev.target.closest("tr");
+    if (!row) return;
+    const id = row.dataset.id;
+
+    if (ev.target.classList.contains("btn-del")) {
+      if (!confirm("¿Eliminar compra #" + id + "?")) return;
+      try { await apiDelete(`/api/compras/${id}/`); await cargarCompras("/api/compras/?page=1"); }
+      catch (e) { alert(e.message); }
+      return;
+    }
+
+    if (ev.target.classList.contains("btn-edit")) {
+      const html = `
+        <div class="grid grid-cols-1 gap-3">
+          <label class="text-sm">Cantidad (kg)
+            <input id="edit_cant" type="number" step="0.01" class="border p-2 rounded w-full" value="${row.dataset.cant}">
+          </label>
+          <label class="text-sm">Precio unitario ($/kg)
+            <input id="edit_precio" type="number" step="0.01" class="border p-2 rounded w-full" value="${row.dataset.precio}">
+          </label>
+        </div>
+      `;
+      openModal(html, async () => {
+        try {
+          await apiPatch(`/api/compras/${id}/`, {
+            cantidad_kg: document.getElementById("edit_cant").value,
+            precio_unitario: document.getElementById("edit_precio").value
+          });
+          await cargarCompras(paginaActualURL);
+          return true;
+        } catch(e) { alert(e.message); return false; }
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}

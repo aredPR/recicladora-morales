@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Sistema de Recicladora</h1>
+<nav>
+  <a href="{% url 'usuarios' %}">Usuarios</a> |
+  <a href="{% url 'materiales' %}">Materiales</a> |
+  <a href="{% url 'compras' %}">Compras</a> |
+  <a href="{% url 'ventas' %}">Ventas</a> |
+  <a href="{% url 'reportes' %}">Rreportes</a>
+</nav>
+{% endblock %}
